@@ -67,6 +67,7 @@
                 inset 0 2px 2px rgba(255, 255, 255, 0.1);
             position: relative;
             top: 0;
+            user-select: none; /* Prevents text highlighting when clicking fast */
         }
 
         /* When the key is pressed down */
@@ -160,54 +161,75 @@
         const display = document.getElementById('display');
         let currentInput = '';
 
-        // Audio Context for synthesizing the mechanical keyboard sound
+        // Initialize Audio Context safely
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         const audioCtx = new AudioContext();
 
         function playMechanicalClick() {
-            // Resume context if browser suspended it (autoplay policies)
+            // Resume context if browser suspended it (required for audio to play)
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
             }
 
-            // Synthesize a quick, satisfying "thock/click" sound
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
+            const time = audioCtx.currentTime;
 
-            // A square wave provides a slightly harsher, more mechanical tone
-            oscillator.type = 'square';
+            // --- LAYER 1: The "Snap/Click" (High frequency plastic sound) ---
+            const clickOsc = audioCtx.createOscillator();
+            const clickGain = audioCtx.createGain();
+            clickOsc.type = 'sine'; // A clean sine wave dropping fast creates a sharp click
             
-            // Start at a mid-low frequency and drop rapidly (creates the "thud/click" impact)
-            oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
-            oscillator.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.03);
+            // Frequency drops rapidly from 1000Hz to 100Hz
+            clickOsc.frequency.setValueAtTime(1000, time);
+            clickOsc.frequency.exponentialRampToValueAtTime(100, time + 0.02);
+            
+            // Volume starts moderate and dies instantly
+            clickGain.gain.setValueAtTime(0.3, time);
+            clickGain.gain.exponentialRampToValueAtTime(0.001, time + 0.02);
 
-            // Shape the volume: sharp attack, immediate decay
-            gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+            clickOsc.connect(clickGain);
+            clickGain.connect(audioCtx.destination);
+            
+            clickOsc.start(time);
+            clickOsc.stop(time + 0.03);
 
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
 
-            oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.04);
+            // --- LAYER 2: The "Thock" (Deeper base sound for bottoming out) ---
+            const thockOsc = audioCtx.createOscillator();
+            const thockGain = audioCtx.createGain();
+            thockOsc.type = 'triangle'; // Triangle has slightly more texture for a thud
+            
+            // Frequency drops from 180Hz to 50Hz (the deeper part of the sound)
+            thockOsc.frequency.setValueAtTime(180, time);
+            thockOsc.frequency.exponentialRampToValueAtTime(50, time + 0.04);
+            
+            // Volume starts louder but also dies very quickly
+            thockGain.gain.setValueAtTime(0.7, time);
+            thockGain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+
+            thockOsc.connect(thockGain);
+            thockGain.connect(audioCtx.destination);
+            
+            thockOsc.start(time);
+            thockOsc.stop(time + 0.06);
         }
 
-        // Add the click sound to EVERY button on the page
+        // Attach the new sound to all buttons
         document.querySelectorAll('button').forEach(button => {
             button.addEventListener('mousedown', playMechanicalClick);
-            // Also trigger on touch for mobile devices
+            
+            // Handle touch devices so it plays instantly without double-firing
             button.addEventListener('touchstart', (e) => {
-                e.preventDefault(); // Prevents firing both touch and mouse events
+                e.preventDefault(); 
                 playMechanicalClick();
-                button.click(); // Trigger the actual button click function
+                button.click(); 
             });
         });
 
+        // Calculator Logic
         function appendValue(value) {
             if (currentInput === '0' && value !== '.') {
                 currentInput = '';
             }
-            // Prevent display from overflowing wildly
             if (currentInput.length < 15) {
                 currentInput += value;
                 updateDisplay();
@@ -217,20 +239,15 @@
         function clearDisplay() {
             currentInput = '0';
             updateDisplay();
-            currentInput = ''; // Reset back to empty internally
+            currentInput = ''; 
         }
 
         function calculate() {
             try {
-                // Evaluate the math expression. 
-                // Note: eval() is used here for simplicity in a strictly front-end context.
                 let result = eval(currentInput);
-                
-                // Handle division by zero
                 if (!isFinite(result)) {
                     currentInput = 'Error';
                 } else {
-                    // Round long decimals to keep it looking clean
                     currentInput = Math.round(result * 100000000) / 100000000;
                     currentInput = currentInput.toString();
                 }
@@ -241,7 +258,6 @@
         }
 
         function updateDisplay() {
-            // Replace operators with prettier symbols for the screen
             let displayString = currentInput.toString().replace(/\*/g, '×').replace(/\//g, '÷');
             display.innerText = displayString || '0';
         }
