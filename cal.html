@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mechanical Calculator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        body {
+            background-color: #2b2b2b;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .calculator {
+            background-color: #1e1e1e;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), 
+                        inset 0 2px 2px rgba(255, 255, 255, 0.1);
+            width: 320px;
+        }
+
+        .display {
+            background-color: #9ea794;
+            color: #111;
+            font-size: 2.5rem;
+            text-align: right;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.4);
+            height: 70px;
+            overflow: hidden;
+            border: 2px solid #000;
+        }
+
+        .keys {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+
+        /* Mechanical Keycap Styling */
+        button {
+            background-color: #3a3a3a;
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border: none;
+            padding: 15px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.05s ease;
+            
+            /* The 3D Keycap effect */
+            box-shadow: 
+                0 6px 0 #1a1a1a, 
+                0 6px 5px rgba(0, 0, 0, 0.4),
+                inset 0 2px 2px rgba(255, 255, 255, 0.1);
+            position: relative;
+            top: 0;
+        }
+
+        /* When the key is pressed down */
+        button:active {
+            top: 6px;
+            box-shadow: 
+                0 0 0 #1a1a1a, 
+                0 0 2px rgba(0, 0, 0, 0.4),
+                inset 0 1px 1px rgba(255, 255, 255, 0.1);
+        }
+
+        button.operator {
+            background-color: #d18b47;
+            box-shadow: 
+                0 6px 0 #9c6430, 
+                0 6px 5px rgba(0, 0, 0, 0.4),
+                inset 0 2px 2px rgba(255, 255, 255, 0.2);
+        }
+
+        button.operator:active {
+            box-shadow: 
+                0 0 0 #9c6430, 
+                0 0 2px rgba(0, 0, 0, 0.4),
+                inset 0 1px 1px rgba(255, 255, 255, 0.2);
+        }
+
+        button.clear {
+            background-color: #c44545;
+            box-shadow: 
+                0 6px 0 #8a2b2b, 
+                0 6px 5px rgba(0, 0, 0, 0.4),
+                inset 0 2px 2px rgba(255, 255, 255, 0.2);
+        }
+
+        button.clear:active {
+            box-shadow: 
+                0 0 0 #8a2b2b, 
+                0 0 2px rgba(0, 0, 0, 0.4),
+                inset 0 1px 1px rgba(255, 255, 255, 0.2);
+        }
+
+        button.equals {
+            grid-column: span 2;
+            background-color: #4b8c5a;
+            box-shadow: 
+                0 6px 0 #2e5938, 
+                0 6px 5px rgba(0, 0, 0, 0.4),
+                inset 0 2px 2px rgba(255, 255, 255, 0.2);
+        }
+
+        button.equals:active {
+            box-shadow: 
+                0 0 0 #2e5938, 
+                0 0 2px rgba(0, 0, 0, 0.4),
+                inset 0 1px 1px rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="calculator">
+        <div class="display" id="display">0</div>
+        <div class="keys">
+            <button class="clear" onclick="clearDisplay()">C</button>
+            <button onclick="appendValue('(')">(</button>
+            <button onclick="appendValue(')')">)</button>
+            <button class="operator" onclick="appendValue('/')">÷</button>
+
+            <button onclick="appendValue('7')">7</button>
+            <button onclick="appendValue('8')">8</button>
+            <button onclick="appendValue('9')">9</button>
+            <button class="operator" onclick="appendValue('*')">×</button>
+
+            <button onclick="appendValue('4')">4</button>
+            <button onclick="appendValue('5')">5</button>
+            <button onclick="appendValue('6')">6</button>
+            <button class="operator" onclick="appendValue('-')">-</button>
+
+            <button onclick="appendValue('1')">1</button>
+            <button onclick="appendValue('2')">2</button>
+            <button onclick="appendValue('3')">3</button>
+            <button class="operator" onclick="appendValue('+')">+</button>
+
+            <button onclick="appendValue('0')">0</button>
+            <button onclick="appendValue('.')">.</button>
+            <button class="equals" onclick="calculate()">=</button>
+        </div>
+    </div>
+
+    <script>
+        const display = document.getElementById('display');
+        let currentInput = '';
+
+        // Audio Context for synthesizing the mechanical keyboard sound
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+
+        function playMechanicalClick() {
+            // Resume context if browser suspended it (autoplay policies)
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            // Synthesize a quick, satisfying "thock/click" sound
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            // A square wave provides a slightly harsher, more mechanical tone
+            oscillator.type = 'square';
+            
+            // Start at a mid-low frequency and drop rapidly (creates the "thud/click" impact)
+            oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.03);
+
+            // Shape the volume: sharp attack, immediate decay
+            gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.04);
+        }
+
+        // Add the click sound to EVERY button on the page
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mousedown', playMechanicalClick);
+            // Also trigger on touch for mobile devices
+            button.addEventListener('touchstart', (e) => {
+                e.preventDefault(); // Prevents firing both touch and mouse events
+                playMechanicalClick();
+                button.click(); // Trigger the actual button click function
+            });
+        });
+
+        function appendValue(value) {
+            if (currentInput === '0' && value !== '.') {
+                currentInput = '';
+            }
+            // Prevent display from overflowing wildly
+            if (currentInput.length < 15) {
+                currentInput += value;
+                updateDisplay();
+            }
+        }
+
+        function clearDisplay() {
+            currentInput = '0';
+            updateDisplay();
+            currentInput = ''; // Reset back to empty internally
+        }
+
+        function calculate() {
+            try {
+                // Evaluate the math expression. 
+                // Note: eval() is used here for simplicity in a strictly front-end context.
+                let result = eval(currentInput);
+                
+                // Handle division by zero
+                if (!isFinite(result)) {
+                    currentInput = 'Error';
+                } else {
+                    // Round long decimals to keep it looking clean
+                    currentInput = Math.round(result * 100000000) / 100000000;
+                    currentInput = currentInput.toString();
+                }
+            } catch (error) {
+                currentInput = 'Error';
+            }
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            // Replace operators with prettier symbols for the screen
+            let displayString = currentInput.toString().replace(/\*/g, '×').replace(/\//g, '÷');
+            display.innerText = displayString || '0';
+        }
+    </script>
+</body>
+</html>
